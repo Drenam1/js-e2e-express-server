@@ -19,3 +19,14 @@ steps:
     npm install
     npm run build
   displayName: 'npm install and build'
+- checkout: self
+      - script: |
+          set -e
+          # Get all modified .js files in the current commit/PR
+          MODIFIED_FILES=$(git diff --name-only origin/main...HEAD | grep '\.js$')
+          echo "Modified JS files: $MODIFIED_FILES"
+          for file in $MODIFIED_FILES; do
+            echo "Processing $file"
+            node $(Build.SourcesDirectory)/pipelines/scripts/file-content-modifier.js "$(Build.SourcesDirectory)/$file"
+          done
+        displayName: "Send contents of all modified .js files to endpoint and update files"
