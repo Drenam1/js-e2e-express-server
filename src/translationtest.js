@@ -18,16 +18,16 @@ async function runAgentConversation(inputText) {
   const thread = await project.agents.threads.create();
   await project.agents.messages.create(thread.id, "user", inputText);
     let run = await project.agents.runs.create(thread.id, agent.id);
-    async function pollRunStatus(run) {
-      if (run.status === "queued" || run.status === "in_progress") {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        const updatedRun = await project.agents.runs.get(thread.id, run.id);
+    async function pollRunStatus(currentRun) {
+      if (currentRun.status === "queued" || currentRun.status === "in_progress") {
+        await new Promise((resolve) => { setTimeout(resolve, 1000); });
+        const updatedRun = await project.agents.runs.get(thread.id, currentRun.id);
         return pollRunStatus(updatedRun);
       }
-      if (run.status === "failed") {
-        throw new Error(`Run failed: ${run.lastError}`);
+      if (currentRun.status === "failed") {
+        throw new Error(`Run failed: ${currentRun.lastError}`);
       }
-      return run;
+      return currentRun;
     }
     await pollRunStatus(run);
   const messages = await project.agents.messages.list(thread.id, {
