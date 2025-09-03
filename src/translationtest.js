@@ -18,17 +18,22 @@ async function runAgentConversation(inputText) {
   const thread = await project.agents.threads.create();
   await project.agents.messages.create(thread.id, "user", inputText);
   let run = await project.agents.runs.create(thread.id, agent.id);
-  while (run.status === "queued" || run.status === "in_progress") {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    run = await project.agents.runs.get(thread.id, run.id);
+  async function pollRunStatus() {
+    while (run.status === "queued" || run.status === "in_progress") {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      run = await project.agents.runs.get(thread.id, run.id);
+    }
+    if (run.status === "failed") {
+      throw new Error(`Run failed: ${run.lastError}`);
+    }
   }
-  if (run.status === "failed") {
-    throw new Error(`Run failed: ${run.lastError}`);
-  }
+  await pollRunStatus();
   const messages = await project.agents.messages.list(thread.id, {
     order: "asc",
   });
-  for await (const m of messages) {
+  // Use array iteration instead of for-await-of
+  const messageArray = Array.from(messages);
+  for (const m of messageArray) {
     const content = m.content.find((c) => c.type === "text" && "text" in c);
     if (content) {
       return content.text.value;
