@@ -17,24 +17,28 @@ async function runAgentConversation(inputText) {
   const agent = await project.agents.getAgent("asst_BpV48khjcUWV39cDfcv3D8Nq");
   const thread = await project.agents.threads.create();
   await project.agents.messages.create(thread.id, "user", inputText);
-  let run = await project.agents.runs.create(thread.id, agent.id);
-  async function pollRunStatus() {
-    while (run.status === "queued" || run.status === "in_progress") {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      run = await project.agents.runs.get(thread.id, run.id);
+    let run = await project.agents.runs.create(thread.id, agent.id);
+    async function pollRunStatus(run) {
+      if (run.status === "queued" || run.status === "in_progress") {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const updatedRun = await project.agents.runs.get(thread.id, run.id);
+        return pollRunStatus(updatedRun);
+      }
+      if (run.status === "failed") {
+        throw new Error(`Run failed: ${run.lastError}`);
+      }
+      return run;
     }
-    if (run.status === "failed") {
-      throw new Error(`Run failed: ${run.lastError}`);
-    }
-  }
-  await pollRunStatus();
+    await pollRunStatus(run);
   const messages = await project.agents.messages.list(thread.id, {
     order: "asc",
   });
-  // Use array iteration instead of for-await-of
-  const messageArray = Array.from(messages);
-  for (const m of messageArray) {
-    const content = m.content.find((c) => c.type === "text" && "text" in c);
+  // Use array .find() instead of explicit loop
+  const foundMessage = messages.find(m =>
+    m.content.some(c => c.type === "text" && "text" in c)
+  );
+  if (foundMessage) {
+    const content = foundMessage.content.find(c => c.type === "text" && "text" in c);
     if (content) {
       return content.text.value;
     }
